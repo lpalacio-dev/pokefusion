@@ -4,10 +4,11 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/app",
-    "types": []
+    "types": ["vite/client"]
   },
   "include": [
-    "src/**/*.ts"
+    "src/**/*.ts",
+    "src/env.d.ts"
   ],
   "exclude": [
     "src/**/*.spec.ts"
