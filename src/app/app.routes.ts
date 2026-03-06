@@ -15,6 +15,14 @@ export const routes: Routes = [
     title: 'PokéFusion — Crea tu fusión',
   },
   {
+    path: 'favorites',
+    loadComponent: () =>
+      import('./features/favorites/favorites.component').then(
+        (m) => m.FavoritesComponent
+      ),
+    title: 'PokéFusion — Mis favoritos',
+  },
+  {
     // Cualquier ruta desconocida redirige a fusion
     path: '**',
     redirectTo: 'fusion',

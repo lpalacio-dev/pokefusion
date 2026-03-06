@@ -1,10 +1,12 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 import {
   addDoc,
   collection,
+  CollectionReference,
   collectionData,
   deleteDoc,
   doc,
+  DocumentData,
   Firestore,
   orderBy,
   query,
@@ -20,61 +22,71 @@ const FUSIONS_COLLECTION = 'fusions';
 @Injectable({ providedIn: 'root' })
 export class FirestoreService {
   private readonly firestore = inject(Firestore);
-
+  private readonly injector = inject(EnvironmentInjector);
+  
   /**
-   * Referencia reactiva a la colección de fusiones.
-   * Lazy: se crea solo cuando se llama por primera vez.
+   * Referencia a la colección. 
+   * Se inicializa una vez para ser reutilizada en los métodos.
    */
-  private get fusionsRef() {
-    return collection(this.firestore, FUSIONS_COLLECTION);
+  private readonly fusionsRef: CollectionReference<DocumentData>;
+
+  constructor() {
+    this.fusionsRef = collection(this.firestore, FUSIONS_COLLECTION);
   }
 
   // ─── Read ────────────────────────────────────────────────────────────────────
 
   /**
-   * Devuelve un Observable que emite el array de fusiones guardadas
-   * cada vez que cambia la colección en Firestore (tiempo real).
-   * Ordenadas de más reciente a más antigua.
+   * Devuelve un Observable con las fusiones en tiempo real.
    */
   getFavorites(): Observable<Fusion[]> {
-    const q = query(this.fusionsRef, orderBy('createdAt', 'desc'));
-    return collectionData(q, { idField: 'id' }) as Observable<Fusion[]>;
-  }
+      return runInInjectionContext(this.injector, () => {
+        const fusionsRef = collection(this.firestore, FUSIONS_COLLECTION);
+        const q = query(fusionsRef, orderBy('createdAt', 'desc'));
+        return collectionData(q, { idField: 'id' }) as Observable<Fusion[]>;
+      });
+    }
 
   // ─── Write ───────────────────────────────────────────────────────────────────
 
   /**
-   * Guarda una fusión en Firestore.
-   * Reemplaza createdAt con serverTimestamp() para consistencia entre clientes.
-   * El id lo asigna Firestore automáticamente.
-   *
-   * @param fusion - Fusión a guardar (sin id)
-   * @returns Promise que resuelve cuando Firestore confirma el write
+   * Guarda una fusión en Firestore asegurando el contexto de inyección.
    */
   async saveFusion(fusion: Omit<Fusion, 'id'>): Promise<void> {
-    const payload = {
-      name:       fusion.name,
-      types:      fusion.types,
-      stats:      fusion.stats,
-      moves:      fusion.moves,
-      parents:    fusion.parents,
-      spriteUrls: fusion.spriteUrls,
-      createdAt:  serverTimestamp(),   // timestamp del servidor, no del cliente
-    };
+    try {
+      const payload = {
+        name:       fusion.name,
+        types:      fusion.types,
+        stats:      fusion.stats,
+        moves:      fusion.moves,
+        parents:    fusion.parents,
+        spriteUrls: fusion.spriteUrls,
+        createdAt:  serverTimestamp(),
+      };
 
-    await addDoc(this.fusionsRef, payload);
+      // Agregamos un log para ver qué estamos enviando exactamente
+      console.log('Payload a enviar:', payload);
+
+      const docRef = await addDoc(this.fusionsRef, payload);
+      console.log('Documento guardado con ID:', docRef.id);
+      
+    } catch (error: any) {
+      console.error('Error detallado en FirestoreService:', error);
+      // Forzamos el lanzamiento del error para que el componente lo capture
+      throw new Error(error.message || 'Error desconocido en Firestore');
+    }
   }
 
   // ─── Delete ──────────────────────────────────────────────────────────────────
 
   /**
-   * Elimina una fusión por su id de documento.
-   *
-   * @param id - id del documento en Firestore
-   * @returns Promise que resuelve cuando Firestore confirma el delete
+   * Elimina una fusión asegurando que la referencia al documento 
+   * se cree dentro del contexto de Angular.
    */
   async deleteFavorite(id: string): Promise<void> {
-    const docRef = doc(this.firestore, FUSIONS_COLLECTION, id);
-    await deleteDoc(docRef);
+    return runInInjectionContext(this.injector, async () => {
+      const docRef = doc(this.firestore, `${FUSIONS_COLLECTION}/${id}`);
+      await deleteDoc(docRef);
+    });
   }
 }
