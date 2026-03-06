@@ -4,7 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, of } from 'rxjs';
 
 import { Fusion } from '@core/models';
-import { FirestoreService } from '@core/services';
+import { LocalStorageService } from '@core/services';
 import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '@shared/components/empty-state/empty-state.component';
 import { ErrorBannerComponent } from '@shared/components/error-banner/error-banner.component';
@@ -145,7 +145,7 @@ type LoadingState = 'loading' | 'success' | 'error';
   `,
 })
 export class FavoritesComponent implements OnInit {
-  private readonly firestoreSvc = inject(FirestoreService);
+  private readonly localStorageService = inject(LocalStorageService);
   private readonly destroyRef   = inject(DestroyRef);
   private readonly router       = inject(Router);
 
@@ -167,7 +167,7 @@ export class FavoritesComponent implements OnInit {
     this.loadingState.set('loading');
     this.errorMessage.set('');
 
-    this.firestoreSvc
+    this.localStorageService
       .getFavorites()
       .pipe(
         catchError((err) => {
@@ -210,7 +210,7 @@ export class FavoritesComponent implements OnInit {
     this.isDeleting.set(true);
 
     try {
-      await this.firestoreSvc.deleteFavorite(fusion.id);
+      await this.localStorageService.deleteFavorite(fusion.id);
       // El observable de getFavorites() actualiza favorites() en tiempo real
       // no es necesario mutar el array manualmente
       this.pendingDelete.set(null);

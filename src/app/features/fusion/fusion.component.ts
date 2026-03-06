@@ -9,7 +9,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { catchError, finalize, of } from 'rxjs';
 
 import { Pokemon, Fusion } from '@core/models';
-import { PokeApiService, FusionLogicService, FirestoreService } from '@core/services';
+import { PokeApiService, FusionLogicService, LocalStorageService } from '@core/services';
 import { LoadingSpinnerComponent } from '@shared/components/loading-spinner/loading-spinner.component';
 import { EmptyStateComponent } from '@shared/components/empty-state/empty-state.component';
 import { ErrorBannerComponent } from '@shared/components/error-banner/error-banner.component';
@@ -183,7 +183,7 @@ type SaveState    = 'idle' | 'saving' | 'saved' | 'error';
 export class FusionComponent {
   private readonly pokeApi      = inject(PokeApiService);
   private readonly fusionSvc    = inject(FusionLogicService);
-  private readonly firestoreSvc = inject(FirestoreService);
+  private readonly localStorageService = inject(LocalStorageService);
   private readonly destroyRef   = inject(DestroyRef);
 
   // ─── Estado ────────────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ export class FusionComponent {
     this.saveState.set('saving');
 
     try {
-      await this.firestoreSvc.saveFusion(fusion);
+      await this.localStorageService.saveFusion(fusion);
       this.saveState.set('saved');
       setTimeout(() => {
         if (this.saveState() === 'saved') this.saveState.set('idle');
