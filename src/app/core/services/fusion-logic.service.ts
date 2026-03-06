@@ -104,9 +104,12 @@ export class FusionLogicService {
   // ─── Stats ──────────────────────────────────────────────────────────────────
 
   /**
-   * Calcula el promedio de cada stat base entre los 3 padres.
-   * Usa el orden de stats del primer pokémon como referencia
-   * (PokeAPI siempre devuelve los 6 stats en el mismo orden).
+   * Calcula los stats de la fusión con una variación aleatoria por stat.
+   *
+   * Base: promedio de los 3 padres para cada stat.
+   * Variación: ±15% del promedio, diferente por cada stat en cada llamada.
+   * Esto hace que cada re-fusión produzca stats distintos, manteniendo
+   * los valores dentro de rangos realistas y acotados al máximo de 255.
    */
   private averageStats(pokemons: [Pokemon, Pokemon, Pokemon]): PokemonStat[] {
     const [p1, p2, p3] = pokemons;
@@ -119,9 +122,15 @@ export class FusionLogicService {
       ];
       const average = bases.reduce((sum, v) => sum + v, 0) / bases.length;
 
+      // Variación aleatoria de ±15% sobre el promedio
+      const variance  = average * 0.15;
+      const variation = (Math.random() * 2 - 1) * variance; // [-variance, +variance]
+      const final     = Math.round(average + variation);
+
       return {
         name: stat.name,
-        base: Math.round(average),
+        // Acotar entre 1 y 255 (rango válido de stats en Pokémon)
+        base: Math.min(255, Math.max(1, final)),
       };
     });
   }
@@ -140,9 +149,24 @@ export class FusionLogicService {
     const pickRandom = (moves: string[]): string =>
       moves[Math.floor(Math.random() * moves.length)] ?? 'tackle';
 
-    return [
-      pickRandom(pokemons[0].moves),
-      pickRandom(pokemons[1].moves),
-    ];
+    const move1 = pickRandom(pokemons[0].moves);
+
+    // Garantizar que move2 sea distinto a move1.
+    // Intentamos primero con pokemon[1]; si coincide, probamos pokemon[2];
+    // como último recurso usamos 'swift' como fallback diferenciador.
+    const candidatesP2 = pokemons[1].moves.filter((m) => m !== move1);
+    const candidatesP3 = pokemons[2].moves.filter((m) => m !== move1);
+
+    let move2: string;
+    if (candidatesP2.length > 0) {
+      move2 = pickRandom(candidatesP2);
+    } else if (candidatesP3.length > 0) {
+      move2 = pickRandom(candidatesP3);
+    } else {
+      // Todos los pokémon comparten el mismo único move — usamos fallback genérico.
+      move2 = 'swift';
+    }
+
+    return [move1, move2];
   }
 }
